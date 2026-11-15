@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DATA MINER: THE TREASURE HUNT - 2D Adventure Game</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/game.css') }}?v=21">
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <!-- Main 2D Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Retro CRT Scanline Shader Overlay -->
+    <div class="scanlines"></div>
+
+    <!-- Redesigned Adventure Game HUD -->
+    <div id="hud-container">
+      <div class="adv-hud-bar">
+        <!-- Panel 1: Cave / Level Information -->
+        <div class="hud-panel hud-level-panel">
+          <div class="hud-level-badge">
+            <span class="hud-level-tag">CAVE</span>
+            <span id="hud-level-num" class="hud-level-num">1</span>
+          </div>
+          <div class="hud-level-info">
+            <div id="hud-level-title" class="hud-level-name">MISSING MINERALS</div>
+            <div id="hud-level-sub" class="hud-level-sub">DATA CLEANING &amp; IMPUTATION</div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Vital Stats (Energy Meter & Hearts) -->
+        <div class="hud-panel hud-vitals-panel">
+          <div class="hud-vital-row">
+            <span class="hud-meter-icon" title="Suit Battery">⚡</span>
+            <div class="hud-meter-wrap" title="Mining Suit Battery">
+              <div id="hud-energy-fill" class="hud-meter-fill energy-high" style="width: 100%;">
+                <div class="hud-meter-glimmer"></div>
+              </div>
+              <span id="hud-charging" class="hud-meter-text">100%</span>
+            </div>
+          </div>
+          <div class="hud-vital-row hud-hearts-row" title="Miner Lives">
+            <div id="hud-hearts" class="hud-hearts-track">
+              <span class="hud-heart active">❤️</span>
+              <span class="hud-heart active">❤️</span>
+              <span class="hud-heart active">❤️</span>
+            </div>
+            <span id="hud-lives" style="display:none;">3</span>
+          </div>
+        </div>
+
+        <!-- Panel 3: Exploration Rewards (Gold & XP) -->
+        <div class="hud-panel hud-rewards-panel">
+          <div class="hud-stat-chip hud-gold-chip" title="Collected Gold">
+            <span class="hud-chip-icon">🪙</span>
+            <div class="hud-chip-body">
+              <span class="hud-chip-label">GOLD</span>
+              <span id="hud-coins" class="hud-chip-value">0</span>
+            </div>
+          </div>
+          <div class="hud-stat-chip hud-xp-chip" title="Explorer Experience">
+            <span class="hud-chip-icon">🏆</span>
+            <div class="hud-chip-body">
+              <span class="hud-chip-label">XP</span>
+              <span id="hud-xp" class="hud-chip-value">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Prompt for Nearby Terminals / Rocks / Chests -->
+    <div id="action-prompt"></div>
+
+    <!-- Live Level Mission Objective Banner (Displays temporarily for 3-4s, then auto-fades) -->
+    <div id="objective-banner" style="display: none;"></div>
+
+    <!-- Floating Banner Notification Toast -->
+    <div id="game-toast"></div>
+
+    <!-- ==================== MAIN MENU SCREEN ==================== -->
+    <div id="main-menu-screen" class="game-screen" style="display: flex;">
+      <div class="menu-box">
+        <h1 class="game-title">DATA MINER</h1>
+        <h2 class="game-subtitle">THE TREASURE HUNT</h2>
+        <div style="font-family: 'VT323', monospace; font-size: 20px; color: #94a3b8; margin-bottom: 25px;">
+          An Interactive 2D Adventure Game for Learning Data Science with Python
+        </div>
+
+        <div class="menu-buttons">
+          <button id="btn-play" class="pixel-btn primary" style="font-size: 13px; padding: 14px 20px;">► START GAME</button>
+          <button id="btn-how-to-play" class="pixel-btn" style="font-size: 13px; padding: 14px 20px;">HOW TO PLAY</button>
+          <button id="btn-reviews-menu" class="pixel-btn" style="font-size: 13px; padding: 14px 20px; border-color: var(--glow-gold); color: var(--glow-gold);">★ SEE FEEDBACK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== HOW TO PLAY MODAL ==================== -->
+    <div id="how-to-play-modal" class="game-screen">
+      <div class="menu-box">
+        <h2 class="game-title" style="font-size: 20px;">HOW TO PLAY</h2>
+        <div class="modal-content">
+          <h3>KEYBOARD CONTROLS</h3>
+          <p>• <strong>WASD / Arrow Keys</strong>: Move your miner through underground caves.</p>
+          <p>• <strong>Spacebar</strong>: Swing pickaxe to mine rocks &amp; open unlocked chests.</p>
+          <p>• <strong>E Key</strong>: Activate handheld Data Scanner or connect to terminals.</p>
+          <p>• <strong>Esc Key</strong>: Pause the game.</p>
+
+          <h3>MINING &amp; CHARGING SURVIVAL</h3>
+          <p>• Mine breakable rocks (Ruby, Emerald, Gold, Diamond) to earn points and gems.</p>
+          <p>• Keep an eye on your <strong>Charging Level</strong>! Traversing caves and mining uses battery power.</p>
+          <p>• Touch glowing <strong>⚡ Charging Capsules</strong> scattered throughout the caverns to restore <strong>+3% battery charge</strong> (capsules disappear once collected and cannot be reused; cleanly capped at 100%)!</p>
+
+          <h3>DATA SCIENCE MISSIONS &amp; PROGRESSION</h3>
+          <p>• Each cave level contains an ancient Data Terminal with data science challenges.</p>
+          <p>• Stand near the terminal and press <strong>[E]</strong> to launch the Data Scanner.</p>
+          <p>• Complete the mission task to unlock the Level's Treasure Chest.</p>
+          <p>• Open the chest to unlock the mystical Gateway to advance to the next level!</p>
+          <p>• Progress sequentially through all 5 cave levels to reach the Mountain King's Golden Vault!</p>
+        </div>
+        <button class="pixel-btn modal-close">BACK TO MENU</button>
+      </div>
+    </div>
+
+    <!-- ==================== PAUSE MODAL ==================== -->
+    <div id="pause-modal" class="game-screen">
+      <div class="menu-box">
+        <h2 class="game-title" style="font-size: 22px;">GAME PAUSED</h2>
+        <div class="menu-buttons">
+          <button class="pixel-btn primary" onclick="window.game.togglePause()">RESUME GAME</button>
+          <button class="pixel-btn" onclick="window.game.loadLevel(window.game.currentLevel); window.game.togglePause();">RESTART LEVEL</button>
+          <button class="pixel-btn danger" onclick="location.reload()">QUIT TO MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== GAME OVER MODAL ==================== -->
+    <div id="gameover-modal" class="game-screen">
+      <div class="menu-box">
+        <h2 class="game-title" style="color:var(--glow-red);">GAME OVER</h2>
+        <p id="gameover-reason" style="font-family:'VT323'; font-size:22px; color:#fca5a5; margin: 15px 0;">Your miner collapsed in the dark caves!</p>
+        <div class="menu-buttons">
+          <button class="pixel-btn primary" onclick="document.getElementById('gameover-modal').style.display='none'; window.game.startGame();">TRY AGAIN</button>
+          <button class="pixel-btn" id="btn-gameover-feedback" style="border-color:var(--glow-cyan); color:var(--glow-cyan);">GIVE FEEDBACK</button>
+          <button class="pixel-btn" id="btn-gameover-reviews" style="border-color:var(--glow-gold); color:var(--glow-gold);">SEE FEEDBACK</button>
+          <button class="pixel-btn danger" onclick="location.reload()">QUIT TO MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== GRAND VICTORY MODAL ==================== -->
+    <div id="victory-modal" class="game-screen">
+      <div class="menu-box" style="max-width: 600px;">
+        <h2 class="game-title" style="color:var(--glow-gold); font-size:24px;">★ CONGRATULATIONS! ★</h2>
+        <h3 class="game-subtitle">YOU HAVE CONQUERED ALL 5 CAVES</h3>
+        <div class="modal-content" style="text-align: center;">
+          <p style="color:var(--glow-green); font-size:22px; font-weight:bold; margin-bottom: 12px;">RANK: MASTER DATA SCIENTIST</p>
+          <div style="font-size:24px; margin: 15px 0; color:var(--glow-gold); font-family:'VT323';">
+            FINAL SCORE: <strong id="final-coins-val">0</strong> POINTS
+          </div>
+          <p style="font-size:18px; color:#cbd5e1;">You completed all 5 cave levels and unlocked the Ancient Golden Vault!</p>
+        </div>
+        <div class="menu-buttons">
+          <button class="pixel-btn primary" id="btn-victory-feedback" style="font-size: 13px; padding: 14px 22px;">★ GIVE FEEDBACK ★</button>
+          <button class="pixel-btn" id="btn-victory-reviews" style="font-size: 13px; padding: 14px 22px; border-color: var(--glow-gold); color: var(--glow-gold);">SEE FEEDBACK</button>
+          <button class="pixel-btn" onclick="location.reload()">PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== PLAYER FEEDBACK MODAL ==================== -->
+    <div id="feedback-modal" class="game-screen" style="display: none; z-index: 100;">
+      <div class="menu-box" style="max-width: 680px; max-height: 90vh; overflow-y: auto; padding: 25px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #5c381c; padding-bottom: 12px; margin-bottom: 16px;">
+          <div>
+            <h2 class="game-title" style="font-size: 18px; color: var(--glow-gold); margin-bottom: 4px;">PLAYER FEEDBACK</h2>
+            <div style="font-family: 'VT323', monospace; font-size: 18px; color: #cca888;">Help us improve DATA MINER with your peer-testing evaluation!</div>
+          </div>
+          <button class="scanner-close-btn" id="fb-close-btn" style="font-size: 10px; padding: 6px 10px;">[X] CLOSE</button>
+        </div>
+
+        <form id="peer-feedback-form">
+          <!-- 1. Player Name (Optional) -->
+          <div class="form-group">
+            <label class="form-label">1. PLAYER NAME (OPTIONAL)</label>
+            <input type="text" id="fb-player-name" class="pixel-input" placeholder="Your name or callsign (e.g. Cadet Alex)" autocomplete="off">
+          </div>
+
+          <!-- 2. Overall Rating (1 to 5 Stars) -->
+          <div class="form-group">
+            <label class="form-label">2. OVERALL GAME EXPERIENCE <span style="color:var(--glow-red);">*</span></label>
+            <div class="star-rating-container" id="star-rating-box">
+              <span class="star-item" data-val="1">★</span>
+              <span class="star-item" data-val="2">★</span>
+              <span class="star-item" data-val="3">★</span>
+              <span class="star-item" data-val="4">★</span>
+              <span class="star-item" data-val="5">★</span>
+              <span id="star-rating-text" style="font-family:'VT323'; font-size:20px; color:var(--glow-gold); margin-left:10px;">(Select stars: 1=Poor, 5=Excellent)</span>
+            </div>
+            <input type="hidden" id="fb-rating-val" value="">
+          </div>
+
+          <!-- 3. Game Difficulty -->
+          <div class="form-group">
+            <label class="form-label">3. GAME DIFFICULTY <span style="color:var(--glow-red);">*</span></label>
+            <div class="choice-chips-grid" id="diff-chips-group">
+              <div class="choice-chip" data-group="difficulty" data-val="Easy">Easy</div>
+              <div class="choice-chip" data-group="difficulty" data-val="Medium">Medium</div>
+              <div class="choice-chip" data-group="difficulty" data-val="Hard">Hard</div>
+              <div class="choice-chip" data-group="difficulty" data-val="Very Hard">Very Hard</div>
+            </div>
+            <input type="hidden" id="fb-difficulty-val" value="">
+          </div>
+
+          <!-- 4. Learning Experience -->
+          <div class="form-group">
+            <label class="form-label">4. DID PLAYING DATA MINER HELP YOU UNDERSTAND DATA SCIENCE CONCEPTS BETTER? <span style="color:var(--glow-red);">*</span></label>
+            <div class="choice-chips-grid" id="learning-chips-group">
+              <div class="choice-chip" data-group="learning" data-val="Yes, definitely">Yes, definitely.</div>
+              <div class="choice-chip" data-group="learning" data-val="Somewhat">Somewhat.</div>
+              <div class="choice-chip" data-group="learning" data-val="Not really">Not really.</div>
+            </div>
+            <input type="hidden" id="fb-learning-val" value="">
+          </div>
+
+          <!-- 5. Gameplay Experience -->
+          <div class="form-group">
+            <label class="form-label">5. HOW WAS THE OVERALL GAMEPLAY? <span style="color:var(--glow-red);">*</span></label>
+            <div class="choice-chips-grid" id="gameplay-chips-group">
+              <div class="choice-chip" data-group="gameplay" data-val="Very interesting">Very interesting.</div>
+              <div class="choice-chip" data-group="gameplay" data-val="Interesting">Interesting.</div>
+              <div class="choice-chip" data-group="gameplay" data-val="Average">Average.</div>
+              <div class="choice-chip" data-group="gameplay" data-val="Needs improvement">Needs improvement.</div>
+            </div>
+            <input type="hidden" id="fb-gameplay-val" value="">
+          </div>
+
+          <!-- 6. Most Challenging Level -->
+          <div class="form-group">
+            <label class="form-label">6. WHICH LEVEL DID YOU FIND MOST CHALLENGING? <span style="color:var(--glow-red);">*</span></label>
+            <select id="fb-level-val" class="pixel-select" style="font-family:'VT323'; font-size:19px; width:100%; padding:10px; background:#180e08; border:2px solid #5c381c; color:#f8efe6;">
+              <option value="">-- Choose Most Challenging Level --</option>
+              <option value="Level 1 – Data Cleaning">Level 1 – Data Cleaning</option>
+              <option value="Level 2 – EDA and Correlation">Level 2 – EDA and Correlation</option>
+              <option value="Level 3 – K-Means Clustering">Level 3 – K-Means Clustering</option>
+              <option value="Level 4 – Outlier Detection">Level 4 – Outlier Detection</option>
+              <option value="Level 5 – Regression">Level 5 – Regression</option>
+            </select>
+          </div>
+
+          <!-- 7. Suggestions and Comments -->
+          <div class="form-group">
+            <label class="form-label">7. SUGGESTIONS AND COMMENTS</label>
+            <textarea id="fb-comments" class="pixel-textarea" placeholder="Tell us what you liked about the game or what we can improve..." style="width:100%; min-height:85px;"></textarea>
+          </div>
+
+          <!-- Feedback Status Box -->
+          <div id="feedback-status-msg" style="display:none; font-family:'VT323'; font-size:20px; padding:12px; border-radius:4px; margin-bottom:14px;"></div>
+
+          <div class="menu-buttons" style="margin-top: 15px;">
+            <button type="submit" id="btn-submit-feedback" class="pixel-btn primary" style="width:100%; padding:14px; font-size:12px;">
+              SUBMIT FEEDBACK
+            </button>
+            <button type="button" id="btn-feedback-back" class="pixel-btn" style="width:100%; padding:10px; font-size:11px;">
+              RETURN TO GAME SCREEN
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== PUBLIC PLAYER REVIEWS MODAL ==================== -->
+    <div id="reviews-modal" class="game-screen" style="display: none; z-index: 100;">
+      <div class="menu-box" style="max-width: 740px; max-height: 90vh; overflow-y: auto; padding: 25px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #5c381c; padding-bottom: 12px; margin-bottom: 16px;">
+          <div>
+            <h2 class="game-title" style="font-size: 18px; color: var(--glow-gold); margin-bottom: 4px;">★ PLAYER FEEDBACK</h2>
+            <div style="font-family: 'VT323', monospace; font-size: 18px; color: #cca888;">What fellow miners said about their adventure!</div>
+          </div>
+          <button class="scanner-close-btn" id="reviews-close-btn" style="font-size: 10px; padding: 6px 10px;">[X] CLOSE</button>
+        </div>
+
+        <!-- Hidden elements kept for JS compatibility -->
+        <span id="reviews-avg-rating" style="display:none;"></span>
+        <span id="reviews-total-count" style="display:none;"></span>
+
+        <!-- Reviews List Container -->
+        <div id="reviews-list-container" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+          <!-- Populated dynamically via JS -->
+          <div style="text-align:center; padding:30px; font-family:'VT323'; font-size:20px; color:#64748b;">
+            LOADING PLAYER FEEDBACK...
+          </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div id="reviews-pagination" style="display:none; justify-content:space-between; align-items:center; border-top:1px solid #5c381c; padding-top:12px; margin-bottom:16px;">
+          <button class="pixel-btn" id="btn-reviews-prev" style="font-size:10px; padding:6px 12px;">&lt; PREVIOUS</button>
+          <span id="reviews-page-info" style="font-family:'VT323'; font-size:18px; color:#cca888;">Page 1 of 1</span>
+          <button class="pixel-btn" id="btn-reviews-next" style="font-size:10px; padding:6px 12px;">NEXT &gt;</button>
+        </div>
+
+        <div class="menu-buttons" style="margin-top: 10px;">
+          <button type="button" id="btn-reviews-back" class="pixel-btn primary" style="width:100%; padding:12px; font-size:11px;">
+            BACK TO SCREEN
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== DATA SCANNER SCI-FI HUD ==================== -->
+    <div id="scanner-modal">
+      <div class="scanner-device">
+        <div class="scanner-header">
+          <div class="scanner-title">
+            <span class="scanner-pulse-dot"></span>
+            <span id="scanner-title-text">DATA SCANNER // LEVEL TERMINAL</span>
+          </div>
+          <button id="scanner-close-btn" class="scanner-close-btn">[X] CLOSE</button>
+        </div>
+
+        <div id="scanner-body" class="scanner-body">
+          <!-- Dynamically populated per Level -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Scripts in strict dependency order -->
+  <script src="{{ url_for('static', filename='js/audio.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/sprites.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/engine.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/levels.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/questions.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/scanner.js') }}?v=21"></script>
+  <script src="{{ url_for('static', filename='js/game.js') }}?v=21"></script>
+</body>
+</html>
