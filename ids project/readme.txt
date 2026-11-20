@@ -1,23 +1,17 @@
 BIKEWISE – Weather-Aware Bike Sharing Demand Prediction
 
 About the Project
-
 BIKEWISE is a machine learning project that focuses on predicting bike-sharing demand based on weather conditions, time, and other environmental factors.
-
 The project uses the Seoul Bike Sharing dataset to understand how different factors, such as temperature, humidity, rainfall, seasons, and holidays, influence the number of rented bikes.
-
 The main aim is to compare different prediction models and identify which one performs better in estimating bike rental demand. This can help bike-sharing services plan bike availability more effectively, especially during peak and non-peak hours.
 
 Dataset
-
 - Dataset Name: Seoul Bike Sharing Dataset
 - File: "SeoulBikeData.csv"
 - Target Variable: Rented Bike Count
-
 The dataset contains hourly bike rental records along with weather information and other details.
 
 Some of the features used include:
-
 - Hour
 - Temperature
 - Humidity
@@ -30,7 +24,6 @@ Some of the features used include:
 - Functioning Day
 
 Technologies and Libraries Used
-
 - Python
 - Pandas – Data handling and analysis
 - NumPy – Numerical operations
@@ -39,7 +32,6 @@ Technologies and Libraries Used
 - Scikit-learn – Machine learning and model evaluation
 
 Project Workflow
-
 1. Data Loading: Read the Seoul Bike Sharing dataset and examine its structure.
 2. Data Cleaning: Check for missing values, duplicate records, and unusual observations.
 3. Outlier Analysis: Identify possible outliers in bike rental counts using the IQR method.
@@ -53,25 +45,19 @@ Project Workflow
 11. Residual Analysis: Examine prediction errors to understand model performance.
 
 Machine Learning Models
-
 The following models are implemented in this project:
-
 1. Mean Baseline
-
 Uses the average bike rental count from the training data as the prediction for every test record. It serves as a basic reference for comparing the other models.
 
 2. Linear Regression
-
 Uses the relationship between input features and bike rental counts to predict demand.
 
 3. Random Forest Regressor
-
 Uses multiple decision trees to capture complex relationships between weather conditions, time, and bike rental demand. GridSearchCV with TimeSeriesSplit is used for hyperparameter tuning.
 
 Model Evaluation Metrics
 
 The models are evaluated using:
-
 - MAE (Mean Absolute Error): Measures the average absolute difference between actual and predicted rental counts.
 - RMSE (Root Mean Squared Error): Measures prediction error while giving more weight to larger errors.
 - R² Score: Indicates how well the model explains variations in bike rental demand.
@@ -81,7 +67,6 @@ The model with the lowest MAE is selected as the best-performing model.
 Visualizations
 
 The project generates graphs to understand different aspects of bike-sharing demand, including:
-
 - Distribution of bike rentals
 - Average rentals by hour
 - Seasonal demand patterns
@@ -103,7 +88,7 @@ How to Run the Project
 1. Clone the repository
 
 git clone <your-repository-link>
-
+c
 2. Move into the project folder
 
 cd BIKEWISE
