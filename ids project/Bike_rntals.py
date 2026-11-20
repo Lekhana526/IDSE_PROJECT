@@ -10,6 +10,8 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
+from sklearn.dummy import DummyRegressor
+from sklearn.base import clone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import (
     mean_absolute_error,
@@ -286,22 +288,48 @@ print(X.head())
 print("\nTarget Variable:")
 print(y.head())
 
-# 8. TRAIN-TEST SPLIT
 
-# Chronological split: 80% training and 20% testing
-split = int(len(df) * 0.8)
-X_train = X.iloc[:split].copy()
-X_test = X.iloc[split:].copy()
-y_train = y.iloc[:split].copy()
-y_test = y.iloc[split:].copy()
-print("\n========== TRAIN TEST SPLIT ==========")
+# 8. TRAIN-VALIDATION-TEST SPLIT
+
+# Chronological split: 70% training, 15% validation, 15% testing
+
+total = len(df)
+
+train_end = int(total * 0.70)
+val_end = int(total * 0.85)
+
+# Split input features
+X_train = X.iloc[:train_end].copy()
+X_val = X.iloc[train_end:val_end].copy()
+X_test = X.iloc[val_end:].copy()
+
+# Split target variable
+y_train = y.iloc[:train_end].copy()
+y_val = y.iloc[train_end:val_end].copy()
+y_test = y.iloc[val_end:].copy()
+
+print("\n========== TRAIN VALIDATION TEST SPLIT ==========")
+
 print("Training Records:", len(X_train))
+print("Validation Records:", len(X_val))
 print("Testing Records:", len(X_test))
-print("Training Period:",df['Date'].iloc[0],"to",df['Date'].iloc[split - 1])
-print("Testing Period:",df['Date'].iloc[split],"to",df['Date'].iloc[-1])
+
+print("\nTraining Period:",
+      df['Date'].iloc[0], "to",
+      df['Date'].iloc[train_end - 1])
+
+print("Validation Period:",
+      df['Date'].iloc[train_end], "to",
+      df['Date'].iloc[val_end - 1])
+
+print("Testing Period:",
+      df['Date'].iloc[val_end], "to",
+      df['Date'].iloc[-1])
+
 
 # 9. PREPROCESSING
-categorical_features = ['Seasons','Holiday','Functioning Day']
+
+categorical_features = ['Seasons', 'Holiday','Functioning Day']
 
 numerical_features = [
     col for col in features
@@ -326,29 +354,40 @@ preprocessor = ColumnTransformer([
     ('cat', categorical_transformer, categorical_features)
 ])
 
+
 # 10. MODEL 1: MEAN BASELINE
 
 print("\n========== MEAN BASELINE ==========")
-# Predict training mean for every test record
-mean_value = y_train.mean()
-baseline_predictions = np.full(len(y_test),mean_value)
-print("Training Mean:", mean_value)
-print("Baseline Predictions:")
-print(baseline_predictions[:10])
+baseline_model = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', DummyRegressor(strategy='mean'))
+])
+
+# Train using training data only
+baseline_model.fit(X_train, y_train)
+
+# Predict validation data for model selection
+baseline_val_predictions = baseline_model.predict(X_val)
+print("Mean Baseline Model Trained Successfully.")
+print("First 10 Validation Predictions:")
+print(baseline_val_predictions[:10])
 
 # 11. MODEL 2: LINEAR REGRESSION
 
 print("\n========== LINEAR REGRESSION ==========")
-lr_model = Pipeline([('preprocessor', preprocessor),('model', LinearRegression())])
+lr_model = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', LinearRegression())
+])
 
-# Train model
-lr_model.fit(X_train,y_train)
+# Train using training data only
+lr_model.fit(X_train, y_train)
 
-# Predict
-lr_predictions = lr_model.predict(X_test)
+# Predict validation data for model selection
+lr_val_predictions = lr_model.predict(X_val)
 print("Linear Regression Model Trained Successfully.")
-print("First 10 Predictions:")
-print(lr_predictions[:10])
+print("First 10 Validation Predictions:")
+print(lr_val_predictions[:10])
 
 # 12. MODEL 3: RANDOM FOREST REGRESSOR
 
@@ -361,10 +400,10 @@ rf_pipeline = Pipeline([
     ))
 ])
 
-# Time Series Cross Validation
+# Time Series Cross Validation - training data only
+# Hyperparameter tuning does not use validation or test data.
 tscv = TimeSeriesSplit(n_splits=3)
 
-# Hyperparameter tuning
 param_grid = {
     'model__n_estimators': [100],
     'model__max_depth': [10, 20],
@@ -380,54 +419,117 @@ grid_search = GridSearchCV(
     verbose=1
 )
 
-# Train and tune using training data only
-grid_search.fit(X_train,y_train)
-
-# Best model
+grid_search.fit(X_train, y_train)
 rf_model = grid_search.best_estimator_
 
-# Predict test data
-rf_predictions = rf_model.predict(X_test)
+# Predict validation data for model selection
+rf_val_predictions = rf_model.predict(X_val)
+
 print("\nBest Random Forest Parameters:")
 print(grid_search.best_params_)
 print("\nBest Cross Validation MAE:")
 print(-grid_search.best_score_)
 print("\nRandom Forest Model Trained Successfully.")
 
-# 13. MODEL EVALUATION
+# 13. MODEL SELECTION USING VALIDATION DATA
 
-print("\n========== MODEL EVALUATION ==========")
+print("\n========== VALIDATION MODEL COMPARISON ==========")
+validation_predictions = {
+    'Mean Baseline': baseline_val_predictions,
+    'Linear Regression': lr_val_predictions,
+    'Random Forest': rf_val_predictions
+}
+
+validation_results = []
+for model_name, pred in validation_predictions.items():
+    val_mae = mean_absolute_error(y_val, pred)
+    val_rmse = np.sqrt(mean_squared_error(y_val, pred))
+    val_r2 = r2_score(y_val, pred)
+    validation_results.append({
+        'Model': model_name,
+        'Validation MAE': val_mae,
+        'Validation RMSE': val_rmse,
+        'Validation R2': val_r2
+    })
+
+validation_results_df = pd.DataFrame(validation_results)
+print("\nVALIDATION COMPARISON TABLE:")
+print(validation_results_df.round(3))
+validation_results_df.to_csv("validation_model_comparison.csv", index=False)
+
+# Select the best model using validation MAE.
+# The Mean Baseline is a reference, not a candidate for final ML model selection.
+ml_validation_results = validation_results_df[
+    validation_results_df['Model'].isin(['Linear Regression', 'Random Forest'])
+]
+best_model_name = ml_validation_results.loc[
+    ml_validation_results['Validation MAE'].idxmin(), 'Model'
+]
+
+print("\n========== BEST MODEL SELECTED FROM VALIDATION ==========")
+print("Best Model Based on Validation MAE:", best_model_name)
+
+# 14. RETRAIN MODELS USING TRAINING + VALIDATION DATA
+
+print("\n========== FINAL TRAINING ==========")
+X_train_final = pd.concat([X_train, X_val])
+y_train_final = pd.concat([y_train, y_val])
+
+# Refit each model on the combined training and validation data.
+# This allows a fair final test comparison of all three models.
+baseline_final = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', DummyRegressor(strategy='mean'))
+])
+baseline_final.fit(X_train_final, y_train_final)
+
+lr_final = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', LinearRegression())
+])
+lr_final.fit(X_train_final, y_train_final)
+
+rf_final = clone(rf_model)
+rf_final.fit(X_train_final, y_train_final)
+
+# 15. FINAL TEST PREDICTIONS - TEST DATA IS USED ONLY HERE
+baseline_predictions = baseline_final.predict(X_test)
+lr_predictions = lr_final.predict(X_test)
+rf_predictions = rf_final.predict(X_test)
+
+# Use the validation-selected model for all subsequent best-model plots/analysis.
+if best_model_name == 'Linear Regression':
+    best_final_model = lr_final
+    best_predictions = lr_predictions
+else:
+    best_final_model = rf_final
+    best_predictions = rf_predictions
+
+# 16. FINAL MODEL EVALUATION ON THE UNTOUCHED TEST SET
+
+print("\n========== FINAL TEST MODEL EVALUATION ==========")
 predictions = {
     'Mean Baseline': baseline_predictions,
     'Linear Regression': lr_predictions,
     'Random Forest': rf_predictions
 }
+
 results = []
 for model_name, pred in predictions.items():
-    mae = mean_absolute_error(
-        y_test,
-        pred
-    )
-    rmse = np.sqrt(
-        mean_squared_error(
-            y_test,
-            pred
-        )
-    )
-    r2 = r2_score(
-        y_test,
-        pred
-    )
+    mae = mean_absolute_error(y_test, pred)
+    rmse = np.sqrt(mean_squared_error(y_test, pred))
+    r2 = r2_score(y_test, pred)
     results.append({
         'Model': model_name,
         'MAE': mae,
         'RMSE': rmse,
         'R2': r2
     })
+
 results_df = pd.DataFrame(results)
-print("\nMODEL COMPARISON TABLE:")
+print("\nFINAL TEST MODEL COMPARISON TABLE:")
 print(results_df.round(3))
-results_df.to_csv("model_comparison.csv",index=False)
+results_df.to_csv("model_comparison.csv", index=False)
 
 #MODEL COMPARISON GRAPH
 
@@ -462,11 +564,11 @@ plt.savefig("figures/12_model_r2_comparison.png")
 plt.show()
 
 #IDENTIFY BEST MODEL
-# Lowest MAE is used to select the best model.
-best_model_name = results_df.loc[results_df['MAE'].idxmin(),'Model']
+# The best model was selected earlier using validation MAE.
+# Test results are reported for evaluation only; they do not change model selection.
 print("\n========== BEST MODEL ==========")
-print("Best Model Based on MAE:", best_model_name)
-best_predictions = predictions[best_model_name]
+print("Best Model Based on Validation MAE:", best_model_name)
+print("Selected Model Test MAE:", mean_absolute_error(y_test, best_predictions))
 
 #ACTUAL VS PREDICTED VALUES
 plt.figure(figsize=(9, 6))
@@ -580,13 +682,13 @@ plt.show()
 
 print("\n========== FEATURE IMPORTANCE ==========")
 # Get the trained preprocessing transformer
-trained_preprocessor = rf_model.named_steps['preprocessor']
+trained_preprocessor = rf_final.named_steps['preprocessor']
 
 # Get transformed feature names
 feature_names = trained_preprocessor.get_feature_names_out()
 
 # Get Random Forest feature importance
-importances = rf_model.named_steps['model'].feature_importances_
+importances = rf_final.named_steps['model'].feature_importances_
 importance_df = pd.DataFrame({'Feature': feature_names,'Importance': importances})
 importance_df = importance_df.sort_values(by='Importance',ascending=False)
 print("\nTop 15 Important Features:")
@@ -620,6 +722,7 @@ print("-" * 60)
 print("\nDataset Records:", len(df))
 print("Dataset Features:", len(features))
 print("Training Records:", len(X_train))
+print("Validation Records:", len(X_val))
 print("Testing Records:", len(X_test))
 print("\nBest Model:", best_model_name)
 print("\nFINAL MODEL COMPARISON:")
